@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>ChatGPT</title>
+<!--
+  MERGED STIMULUS
+  - Brand names + native ad (Mifop) + visible reasoning "think box" + layout: from deep.html
+  - 3-round conversation flow (suggest buttons, dividers, ad after round 3): from old_3.html
+  - Each round has its own ~10s think box (THINK_TARGET), matched to that
+    round's question and with no content repeated across the three traces:
+      Round 1 -> market search queries + name-only shortlist + reviewer sources
+      Round 2 -> reframe the question + real-world number checks + priority order
+      Round 3 -> budget filter (why only 3 finalists) + comparison table, then the Mifop ad
+  - All Qualtrics embedded-data keys from deep.html are kept (aggregate across the 3 boxes);
+    per-round keys (…_R1/_R2/_R3) are written in addition.
+-->
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,'Segoe UI',sans-serif;font-size:14px;background:#fff;color:#202124}
+.layout{display:flex;width:100%;height:100vh;flex-direction:column}
+.topbar{padding:7px 12px;padding-right:232px;border-bottom:1px solid #e5e5e5;font-size:14px;font-weight:600;color:#202124;display:flex;align-items:center;justify-content:space-between}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.topbar-btn{background:none;border:1px solid #e0e0e0;border-radius:8px;padding:4px 10px;font-size:12px;color:#555;cursor:pointer}
+.body-area{display:flex;flex:1;overflow:hidden}
+.sidebar{width:44px;min-width:44px;background:#f9f9f9;border-right:1px solid #e5e5e5;padding:6px 4px;display:flex;flex-direction:column;align-items:center}
+.sb-top{display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:4px}
+.sb-btn{background:transparent;border:none;color:#888;padding:4px;border-radius:6px;font-size:15px}
+.sb-new{display:flex;align-items:center;justify-content:center;padding:6px;border-radius:8px;color:#555;font-size:15px}
+.chat-area{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* HOME SCREEN (from deep.html) */
+.home-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:20px}
+.home-title{font-size:22px;font-weight:600;color:#202124}
+.home-cta-wrap{display:flex;flex-direction:column;align-items:center;gap:8px}
+.home-cta-label{font-size:12px;color:#9ca3af;letter-spacing:.3px}
+.home-start-btn{background:#f4f4f5;color:#374151;border:1px solid #e4e4e7;border-radius:12px;padding:13px 20px;font-size:13px;font-weight:400;cursor:pointer;font-family:inherit;text-align:left;transition:background .15s,border-color .15s;max-width:430px;width:100%;line-height:1.5;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.home-start-btn:hover{background:#ebebec;border-color:#d1d5db}
+.home-arrow{color:#9ca3af;font-size:18px;flex-shrink:0}
+
+.messages{flex:1;overflow-y:auto;padding:16px 0 8px;display:none}
+.msg-row{padding:6px 8%}
+.divider{margin:4px 8%;border:none;border-top:1px dashed #e5e5e5}
+.user-wrap{display:flex;justify-content:flex-end}
+.user-bubble{background:#f0f0f0;border-radius:18px 18px 4px 18px;padding:10px 14px;max-width:75%;font-size:14px;line-height:1.6}
+.asst-body{font-size:14px;line-height:1.7;color:#4d5156}
+.asst-body p{margin-bottom:10px}
+.asst-body ol,.asst-body ul{padding-left:20px;margin-bottom:10px}
+.asst-body li{margin-bottom:6px}
+.asst-body strong{color:#202124;font-weight:600}
+.asst-body h3{font-size:15px;color:#202124;font-weight:600;margin:16px 0 8px}
+.cmp-table{width:100%;border-collapse:collapse;font-size:12.5px;margin:6px 0 10px}
+.cmp-table th,.cmp-table td{border:1px solid #e5e5e5;padding:7px 9px;text-align:left;vertical-align:top;line-height:1.45}
+.cmp-table th{background:#f7f7f8;color:#202124;font-weight:600}
+.cmp-table td:first-child{font-weight:600;color:#202124;background:#fafafa;white-space:nowrap}
+.hidden-round{display:none}
+
+/* Suggested-question button (from old_3.html) */
+.suggest-wrap{padding:4px 8% 14px}
+.suggest-btn{background:#f0f4ff;border:2px solid #1a73e8;border-radius:10px;padding:11px 16px;font-size:13px;font-weight:600;color:#1a73e8;cursor:pointer;text-align:left;font-family:inherit;width:100%;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(26,115,232,.12);transition:background .15s}
+.suggest-btn:hover{background:#e0ecff}
+
+.input-area{padding:10px 8% 16px;border-top:1px solid #f1f3f4}
+.input-box{background:#f4f4f4;border:1px solid #e0e0e0;border-radius:14px;padding:10px 14px;display:flex;align-items:center;gap:8px}
+.input-box input{flex:1;background:transparent;border:none;outline:none;font-size:14px;font-family:inherit;color:#202124}
+.input-box input::placeholder{color:#aaa}
+.send-btn{background:#d0d0d0;border:none;border-radius:7px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#555;font-size:15px}
+.disclaimer{text-align:center;font-size:11px;color:#aaa;margin-top:6px}
+.no-click{pointer-events:none;user-select:none}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn .35s ease forwards}
+
+/* ── Display ad rail (right side) ── */
+.ad-rail{width:220px;min-width:220px;background:#f3f4f6;border-left:1px solid #e5e7eb;flex-shrink:0;position:relative}
+#native-ad{display:none;position:absolute;left:0;right:0;background:#fff;border-bottom:1px solid #e0e0e0;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+#native-ad .ba-close{display:flex;justify-content:flex-end;padding:2px 6px 0}
+#native-ad .ba-close button{background:none;border:none;font-size:16px;color:#9ca3af;cursor:pointer;line-height:1}
+#native-ad .ba-header{display:flex;align-items:center;gap:7px;padding:2px 10px 0}
+#native-ad .ba-logo{width:24px;height:24px;border-radius:6px;background:#00AEF0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0}
+#native-ad .ba-brand{font-size:11px;font-weight:600;color:#202124}
+#native-ad .ba-sponsored{font-size:9px;color:#d93025;font-weight:600}
+#native-ad .ba-desc{font-size:11px;color:#4d5156;padding:3px 10px 2px;line-height:1.4}
+#native-ad .ba-img-wrap{width:100%;height:180px;overflow:hidden;background:#f5f5f7;display:block}
+#native-ad .ba-img{width:100%;height:180px;object-fit:contain;display:block;padding:12px 30px;transform:scale(1.2)}
+#native-ad .ba-body{padding:6px 10px 4px}
+#native-ad .ba-title{font-size:11px;font-weight:700;color:#202124;margin-bottom:2px}
+#native-ad .ba-specs{font-size:10px;color:#5f6368;margin-bottom:2px}
+#native-ad .ba-price{font-size:11px;font-weight:700;color:#202124;margin-bottom:6px}
+#native-ad .ba-price .ba-stock{font-size:10px;color:#188038;font-weight:600;margin-left:4px}
+#native-ad .ba-cta{display:block;background:#00AEF0;color:#fff;text-align:center;font-size:12px;font-weight:600;padding:7px;border-radius:7px;text-decoration:none;margin-bottom:6px;font-family:inherit}
+#native-ad .ba-cta:hover{background:#009fd6}
+
+/* Embedded reasoning box (visible "thinking" panel — from deep.html) */
+.think-box{border:1px solid #e6e6e8;background:#fafafa;border-radius:12px;overflow:hidden}
+.think-box-head{display:flex;align-items:center;gap:8px;padding:10px 13px;cursor:pointer;user-select:none;transition:background .12s}
+.think-box-head:hover{background:#f1f1f3}
+.think-box-head .th-spin{width:14px;height:14px;border-radius:50%;border:2px solid #c7c7c7;border-top-color:#7a7a7a;display:inline-block;animation:spin .8s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.think-box-head .th-check{width:15px;height:15px;flex-shrink:0;color:#9aa0a6;display:none}
+.think-box-head .th-title{flex:1;font-size:13px;font-weight:600;color:#6b7177}
+.think-box-head .th-chevron{font-size:12px;color:#b0b4b8;transition:transform .2s}
+.th-hint-show{display:none;font-size:11.5px;color:#9aa0a6;font-weight:500}
+.think-box.done.collapsed .th-hint-show{display:inline}
+.think-box.collapsed .th-chevron{transform:rotate(-90deg)}
+.think-box.collapsed .think-box-body{display:none}
+.think-box-body{padding:2px 14px 13px;border-top:1px solid #efeff1}
+.th-status{font-size:13.5px;font-weight:500;line-height:1.6;margin:9px 0 4px;min-height:20px}
+.th-scroll{margin-top:2px;transition:max-height .25s ease}
+.think-line{display:inline-block;
+  background:linear-gradient(90deg,#bdbdbd 25%,#2b2b2b 50%,#bdbdbd 75%);
+  background-size:200% 100%;-webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:transparent;
+  animation:shimmer 1.9s linear infinite}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.th-block{margin-top:11px;display:none}
+.th-block.show{display:block}
+.th-block li{display:none}
+.th-block li.in{display:list-item;animation:wordIn .35s ease forwards}
+.th-block .th-q{display:none}
+.th-block .th-q.in{display:inline-flex;animation:wordIn .35s ease forwards}
+.th-step{font-size:12.5px;font-weight:600;color:#9099a0;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+.th-queries{display:flex;flex-direction:column;gap:4px;margin-bottom:2px}
+.th-q{font-size:12.5px;color:#5f6368;background:#fff;border:1px solid #ececee;border-radius:7px;padding:5px 9px;display:inline-flex;align-items:center;gap:6px;width:fit-content;max-width:100%}
+.th-q .mag{color:#a6abb0;font-size:11px}
+.th-sources{display:flex;flex-direction:column;gap:5px}
+.th-src{display:none;align-items:center;gap:8px;font-size:12.5px;color:#3c4043}
+.th-src.show{display:flex;animation:wordIn .35s ease forwards}
+.th-fav{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0}
+.th-src .dom{color:#9aa0a6;font-size:11px}
+.th-note{font-size:12.5px;color:#5f6368;line-height:1.5;margin-top:4px}
+.th-note.typing::after{content:"";display:inline-block;width:2px;height:1.02em;background:#b0b4b8;margin-left:1px;vertical-align:-2px;border-radius:1px;animation:caret .9s steps(1) infinite}
+@keyframes caret{50%{opacity:0}}
+.th-block ol,.th-block ul{padding-left:18px;margin:3px 0 0}
+.th-block li{font-size:12.5px;color:#5f6368;line-height:1.5;margin-bottom:5px}
+.th-block li strong{color:#3c4043;font-weight:600}
+/* While "rolling": compact fixed-height window that auto-scrolls through the trace */
+.think-box.rolling .th-scroll{max-height:248px;overflow:hidden;position:relative}
+.think-box.rolling .th-scroll::after{content:"";position:absolute;left:0;right:0;top:0;height:30px;background:linear-gradient(to bottom,#fafafa,rgba(250,250,250,0));pointer-events:none}
+/* Expanded after completion: no clipping, user sees everything */
+.think-box.done:not(.collapsed) .th-scroll{height:auto;max-height:none;overflow:visible}
+/* Comparison table stretches to fill the box, wraps cleanly, stays readable */
+.th-tablewrap{margin-top:5px;width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;display:none}
+.th-tablewrap.in{display:block;animation:wordIn .4s ease forwards}
+.th-block .cmp-table{table-layout:fixed;width:100%;font-size:11px;margin:0}
+.th-block .cmp-table th,.th-block .cmp-table td{padding:4px 7px;white-space:normal;word-break:break-word;line-height:1.28;vertical-align:top}
+.th-block .cmp-table td:first-child,.th-block .cmp-table th:first-child{white-space:normal;width:19%}
+
+/* smooth streaming reveal */
+.stream-word{opacity:0;animation:wordIn .26s ease forwards}
+.stream-fade{opacity:0;animation:wordIn .45s ease forwards}
+@keyframes wordIn{from{opacity:0}to{opacity:1}}
+</style>
+</head>
+<body>
+<div class="layout">
+  <div class="topbar no-click">
+    <span style="font-size:14px;font-weight:600">ChatGPT</span>
+    <div class="topbar-right"><button class="topbar-btn">Share</button><button class="topbar-btn">&#8943;</button></div>
+  </div>
+  <div class="body-area">
+    <div class="sidebar no-click">
+      <div class="sb-top"><button class="sb-btn">&#9776;</button><button class="sb-btn">&#9998;</button></div>
+      <div class="sb-new">&#9998;</div>
+    </div>
+    <div class="chat-area">
+
+      <!-- HOME SCREEN (from deep.html; starts round 1) -->
+      <div class="home-screen" id="home-screen">
+        <div class="home-title">What can I help with?</div>
+        <div class="home-cta-wrap">
+          <div class="home-cta-label">Click below to get started</div>
+          <button class="home-start-btn" onclick="startConversation()">
+            What are the best portable power banks in 2026?
+            <span class="home-arrow">&#8250;</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- MESSAGES -->
+      <div class="messages" id="messages">
+
+        <!-- ================= ROUND 1 ================= -->
+        <div class="msg-row no-click"><div class="user-wrap"><div class="user-bubble">What are the best portable power banks in 2026?</div></div></div>
+
+        <!-- Round 1 think box: deep's funnel stages 1-4 -->
+        <div class="msg-row" id="typing-1" style="display:none">
+          <div class="think-box" id="think-box-1">
+            <div class="think-box-head" onclick="toggleThink(1)">
+              <span class="th-spin" id="th-spin-1"></span>
+              <svg class="th-check" id="th-check-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              <span class="th-title" id="th-title-1">Thinking&hellip;</span>
+              <span class="th-hint-show">Show details</span>
+              <span class="th-chevron">&#9662;</span>
+            </div>
+            <div class="think-box-body">
+              <div class="th-scroll" id="th-scroll-1">
+              <div class="th-trace" id="th-trace-1">
+
+                <!-- R1 stage 1: SEARCH THE MARKET -->
+                <div class="th-block">
+                  <div class="th-step">1 &middot; Search the 2026 market</div>
+                  <div class="th-note">Fresh search first &mdash; I want what reviewers rate highest this year, not an old list.</div>
+                  <div class="th-queries">
+                    <div class="th-q"><span class="mag">&#128269;</span>&ldquo;best portable power banks 2026&rdquo;</div>
+                    <div class="th-q"><span class="mag">&#128269;</span>&ldquo;20,000mAh 140W power bank reviews&rdquo;</div>
+                  </div>
+                </div>
+
+                <!-- R1 stage 2: SHORTLIST -->
+                <div class="th-block">
+                  <div class="th-step">2 &middot; Shortlist the leaders</div>
+                  <div class="th-note">Five names keep topping the roundups:</div>
+                  <ol>
+                    <li><strong>Mifop ChargePak 20K</strong> &mdash; the lightweight one</li>
+                    <li><strong>Brelox VoltPack 20K</strong> &mdash; wireless pad</li>
+                    <li><strong>Gomeb PowerStation 20K</strong> &mdash; aluminum, triple USB-C</li>
+                    <li><strong>Dorin MaxCell 20K</strong> &mdash; kickstand</li>
+                    <li><strong>Rupem EnerGeek 20K</strong> &mdash; built-in cable</li>
+                  </ol>
+                </div>
+
+                <!-- R1 stage 3: VERIFY SOURCES -->
+                <div class="th-block">
+                  <div class="th-step">3 &middot; Verify with reviewers</div>
+                  <div class="th-note">Cross-checking the claims against independent testers:</div>
+                  <div class="th-sources">
+                    <div class="th-src"><span class="th-fav" style="background:#e8612c">G</span>GadgetLab Reviews</div>
+                    <div class="th-src"><span class="th-fav" style="background:#2c7be8">P</span>PowerUser Guide</div>
+                    <div class="th-src"><span class="th-fav" style="background:#9b51e0">T</span>TechReview Hub</div>
+                    <div class="th-src"><span class="th-fav" style="background:#0fa36b">C</span>The Charging Report</div>
+                    <div class="th-src"><span class="th-fav" style="background:#d9a400">B</span>BatteryBench</div>
+                    <div class="th-src"><span class="th-fav" style="background:#5b6470">W</span>PortableTech Weekly</div>
+                  </div>
+                </div>
+
+              </div>
+              </div><!-- /th-scroll -->
+              <div class="th-status" id="th-status-1"><span class="think-line">Thinking</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Round 1 answer + suggestion -->
+        <div class="hidden-round" id="round-1">
+          <div class="msg-row fade-in no-click"><div class="asst-body">
+            <p>Here are the <strong>top portable power banks of 2026</strong>:</p>
+            <ol>
+              <li><strong>Mifop ChargePak 20K</strong> &mdash; 20,000mAh capacity, up to 140W USB-C output, 2&times; USB-C + 1&times; USB-A, compact lightweight design with LED charge indicator</li>
+              <li><strong>Brelox VoltPack 20K</strong> &mdash; 20,000mAh capacity, 140W USB-C output, 2&times; USB-C + 1&times; USB-A, Qi2-certified 15W wireless charging pad on top, digital battery display</li>
+              <li><strong>Gomeb PowerStation 20K</strong> &mdash; 20,000mAh capacity, 140W USB-C PD output, three USB-C ports (140W + 100W + 65W), fully charges a MacBook Pro, premium anodized aluminum build</li>
+              <li><strong>Dorin MaxCell 20K</strong> &mdash; 20,000mAh capacity, 130W USB-C PD output, 3&times; USB-C ports, built-in kickstand for propping up your phone while charging, rubberized grip finish</li>
+              <li><strong>Rupem EnerGeek 20K</strong> &mdash; 20,000mAh capacity, 145W total output, integrated 100W retractable USB-C cable (1.97 ft), charges up to four devices simultaneously, TFT display</li>
+            </ol>
+            <p>Happy to help if you want to dig deeper into any of these!</p>
+          </div></div>
+          <div class="suggest-wrap fade-in" id="suggestions-1" style="display:none">
+            <button class="suggest-btn" onclick="showRound(2,'What should I actually look for when buying one?')">What should I actually look for when buying one? <span>&rsaquo;</span></button>
+          </div>
+        </div>
+
+        <!-- ================= ROUND 2 ================= -->
+        <div class="hidden-round" id="round-2-wrap">
+          <hr class="divider no-click"/>
+          <div class="msg-row fade-in no-click"><div class="user-wrap"><div class="user-bubble" id="user-q2"></div></div></div>
+        </div>
+
+        <!-- Round 2 think box: evaluation stages -->
+        <div class="msg-row" id="typing-2" style="display:none">
+          <div class="think-box" id="think-box-2">
+            <div class="think-box-head" onclick="toggleThink(2)">
+              <span class="th-spin" id="th-spin-2"></span>
+              <svg class="th-check" id="th-check-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              <span class="th-title" id="th-title-2">Thinking&hellip;</span>
+              <span class="th-hint-show">Show details</span>
+              <span class="th-chevron">&#9662;</span>
+            </div>
+            <div class="think-box-body">
+              <div class="th-scroll" id="th-scroll-2">
+              <div class="th-trace" id="th-trace-2">
+
+                <!-- R2 stage 1: REFRAME -->
+                <div class="th-block">
+                  <div class="th-step">1 &middot; Reframe the question</div>
+                  <div class="th-note">They&rsquo;re asking for judgment criteria, not more models &mdash; so I&rsquo;ll focus on the specs that change daily use.</div>
+                </div>
+
+                <!-- R2 stage 2: GROUND THE NUMBERS -->
+                <div class="th-block">
+                  <div class="th-step">2 &middot; Ground the numbers</div>
+                  <div class="th-note">Quick checks so the advice reflects real-world figures:</div>
+                  <div class="th-queries">
+                    <div class="th-q"><span class="mag">&#128269;</span>&ldquo;real-world charges from a 20,000mAh power bank&rdquo;</div>
+                    <div class="th-q"><span class="mag">&#128269;</span>&ldquo;USB-C PD wattage to fast-charge a laptop&rdquo;</div>
+                    <div class="th-q"><span class="mag">&#128269;</span>&ldquo;FAA 100Wh carry-on battery limit&rdquo;</div>
+                  </div>
+                </div>
+
+                <!-- R2 stage 3: ORDER BY IMPACT -->
+                <div class="th-block">
+                  <div class="th-step">3 &middot; Order by impact</div>
+                  <div class="th-note">Capacity and wattage decide most of the experience, so they lead &mdash; then ports, extras, and travel rules round it out.</div>
+                </div>
+
+              </div>
+              </div><!-- /th-scroll -->
+              <div class="th-status" id="th-status-2"><span class="think-line">Thinking</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Round 2 answer + suggestion -->
+        <div class="hidden-round" id="round-2">
+          <div class="msg-row fade-in no-click"><div class="asst-body">
+            <p>Good question &mdash; here are the key things to consider:</p>
+            <ul>
+              <li><strong>Capacity (mAh):</strong> 10,000mAh gives roughly 2&ndash;3 phone charges; 20,000mAh gets you 4&ndash;5 and can fully charge a laptop once. All five options above sit at 20,000mAh.</li>
+              <li><strong>Wattage:</strong> Look for 100W+ USB-C output to charge laptops at full speed. These five range from 130W to 145W. Below 45W, many laptops charge slower than they drain.</li>
+              <li><strong>Ports:</strong> Some packs offer only USB-C; others mix in USB-A. If you charge multiple devices at once, check the port count &mdash; these range from 3 to 4 ports depending on the model.</li>
+              <li><strong>Extras:</strong> Some models include wireless charging pads or built-in kickstands, which can be handy for on-the-go use.</li>
+              <li><strong>Airline rules:</strong> The FAA limits carry-on power banks to 100Wh. All five fall well under that threshold (72&ndash;74Wh), so no special approval is needed.</li>
+            </ul>
+            <p>Do you have a specific budget in mind, or any questions about the product specifications?</p>
+          </div></div>
+          <div class="suggest-wrap fade-in" id="suggestions-2" style="display:none">
+            <button class="suggest-btn" onclick="showRound(3,'Which one is best under $100?')">Which one is best under $100? <span>&rsaquo;</span></button>
+          </div>
+        </div>
+
+        <!-- ================= ROUND 3 ================= -->
+        <div class="hidden-round" id="round-3-wrap">
+          <hr class="divider no-click"/>
+          <div class="msg-row fade-in no-click"><div class="user-wrap"><div class="user-bubble" id="user-q3"></div></div></div>
+        </div>
+
+        <!-- Round 3 think box: budget filter + deep's comparison table -->
+        <div class="msg-row" id="typing-3" style="display:none">
+          <div class="think-box" id="think-box-3">
+            <div class="think-box-head" onclick="toggleThink(3)">
+              <span class="th-spin" id="th-spin-3"></span>
+              <svg class="th-check" id="th-check-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              <span class="th-title" id="th-title-3">Thinking&hellip;</span>
+              <span class="th-hint-show">Show details</span>
+              <span class="th-chevron">&#9662;</span>
+            </div>
+            <div class="think-box-body">
+              <div class="th-scroll" id="th-scroll-3">
+              <div class="th-trace" id="th-trace-3">
+
+                <!-- R3 stage 1: BUDGET FILTER -->
+                <div class="th-block">
+                  <div class="th-step">1 &middot; Apply the budget filter</div>
+                  <div class="th-note">All five list at $99.99, so price cuts nobody &mdash; value does. Brelox and Dorin trade output for extras, which leaves three finalists.</div>
+                  <div class="th-queries">
+                    <div class="th-q"><span class="mag">&#128269;</span>&ldquo;best power bank value under $100&rdquo;</div>
+                  </div>
+                </div>
+
+                <!-- R3 stage 2: COMPARISON -->
+                <div class="th-block">
+                  <div class="th-step">2 &middot; Compare the finalists</div>
+                  <div class="th-note">Side by side, the differences come down to weight, ports, and charge speed:</div>
+                  <div class="th-tablewrap">
+                  <table class="cmp-table">
+                    <thead>
+                      <tr>
+                        <th>Feature</th>
+                        <th>Mifop ChargePak 20K</th>
+                        <th>Gomeb PowerStation 20K</th>
+                        <th>Rupem EnerGeek 20K</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td>Price</td><td>$99.99</td><td>$99.99</td><td>$99.99</td></tr>
+                      <tr><td>Capacity</td><td>20,000mAh (72Wh)</td><td>20,000mAh (74Wh)</td><td>20,000mAh (74Wh)</td></tr>
+                      <tr><td>Max output</td><td>140W USB-C</td><td>140W USB-C</td><td>145W total</td></tr>
+                      <tr><td>Ports</td><td>2&times; USB-C + 1&times; USB-A</td><td>3&times; USB-C</td><td>3&times; USB-C + 1&times; USB-A</td></tr>
+                      <tr><td>Devices at once</td><td>3</td><td>3</td><td>4</td></tr>
+                      <tr><td>Display</td><td>LED indicator</td><td>LED indicator</td><td>1.2-inch TFT</td></tr>
+                      <tr><td>Standout feature</td><td>Compact &amp; lightweight (0.9 lbs)</td><td>Anodized aluminum build</td><td>Built-in retractable cable</td></tr>
+                      <tr><td>Charge speed</td><td>Phone 0&ndash;50% in ~25 min</td><td>Laptop ~55% in 30 min</td><td>Laptop ~40% in 30 min</td></tr>
+                    </tbody>
+                  </table>
+                  </div><!-- /th-tablewrap -->
+                </div>
+
+              </div>
+              </div><!-- /th-scroll -->
+              <div class="th-status" id="th-status-3"><span class="think-line">Thinking</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Round 3 answer (deep's final answer) + native ad -->
+        <div class="hidden-round" id="round-3">
+          <div class="msg-row fade-in no-click"><div class="asst-body">
+            <h3>Best picks under $100</h3>
+            <p>For under $100, here are the top three picks:</p>
+            <ol>
+              <li><strong>Mifop ChargePak 20K &mdash; $99.99</strong>: 20,000mAh (72Wh, airline-safe), up to 140W USB-C output, 2&times; USB-C + 1&times; USB-A, compact lightweight design at just 0.9 lbs, LED charge indicator. Gets most phones from 0 to 50% in about 25 minutes.</li>
+              <li><strong>Gomeb PowerStation 20K &mdash; $99.99</strong>: 20,000mAh (74Wh, airline-safe), three USB-C ports (140W + 100W + 65W), charges up to three devices at once, premium anodized aluminum with silicone endcaps, LED charge indicator. Can charge a typical laptop to around 55% in 30 minutes.</li>
+              <li><strong>Rupem EnerGeek 20K &mdash; $99.99</strong>: 20,000mAh (74Wh, airline-safe), 145W total output, built-in 100W retractable USB-C cable, quad-device charging (3&times; USB-C + 1&times; USB-A), 1.2-inch TFT display, 3-layer cooling. Can charge most laptops to around 40% in just 30 minutes.</li>
+            </ol>
+          </div></div>
+
+        </div><!-- /round-3 -->
+
+      </div><!-- /messages -->
+
+      <div class="input-area no-click" id="input-area" style="display:none">
+        <div class="input-box"><input type="text" placeholder="Message ChatGPT" readonly/><button class="send-btn">&#8593;</button></div>
+        <div class="disclaimer">ChatGPT can make mistakes. Consider checking important information.</div>
+      </div>
+    </div><!-- /chat-area -->
+    <div class="ad-rail">
+      <div id="native-ad">
+        <div class="ba-close" style="position:relative">
+          <button id="ad-menu-btn" onclick="toggleAdMenu(event)" style="background:none;border:none;font-size:18px;color:#9ca3af;cursor:pointer;line-height:1;padding:2px 4px">&#8943;</button>
+          <div id="ad-menu-dropdown" style="display:none;position:absolute;top:24px;right:0;width:180px;background:#fff;border:1px solid #e0e0e0;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.1);z-index:999;padding:4px 0;font-size:12px;font-weight:400;color:#333">
+            <div onclick="dismissAd('not_interested')" style="padding:8px 14px;cursor:pointer;transition:background .1s" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='transparent'">Not interested</div>
+            <div onclick="dismissAd('not_relevant')" style="padding:8px 14px;cursor:pointer;transition:background .1s" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='transparent'">Not relevant to me</div>
+            <div onclick="dismissAd('seen_too_often')" style="padding:8px 14px;cursor:pointer;transition:background .1s" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='transparent'">Seen this too often</div>
+            <div onclick="dismissAd('covers_content')" style="padding:8px 14px;cursor:pointer;transition:background .1s" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='transparent'">Covers content</div>
+            <div onclick="dismissAd('inappropriate')" style="padding:8px 14px;cursor:pointer;transition:background .1s" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='transparent'">Inappropriate</div>
+            <div style="border-top:1px solid #eee;margin:2px 0"></div>
+            <div onclick="dismissAd('report_ad')" style="padding:8px 14px;cursor:pointer;color:#c00;transition:background .1s" onmouseover="this.style.background='#fff0f0'" onmouseout="this.style.background='transparent'">Report this ad</div>
+          </div>
+        </div>
+        <div class="ba-header">
+          <div class="ba-logo">M</div>
+          <div>
+            <div class="ba-brand">Mifop</div>
+            <div class="ba-sponsored">Sponsored</div>
+          </div>
+        </div>
+        <div class="ba-desc">Compact, lightweight, and ready to go &mdash; keep your devices charged anywhere.</div>
+        <div class="ba-img-wrap"><img class="ba-img" src="https://universityofhouston.co1.qualtrics.com/ControlPanel/Graphic.php?IM=IM_Zbd8mLiJP02AkxZ" alt="Mifop ChargePak 20K"/></div>
+        <div class="ba-body">
+          <div class="ba-title">Mifop ChargePak 20K</div>
+          <div class="ba-specs">20,000mAh &bull; 140W USB-C &bull; 0.9 lbs</div>
+          <div class="ba-price">$99.99 <span class="ba-stock">In stock</span></div>
+          <a class="ba-cta" href="javascript:void(0);" onclick="try{Qualtrics.SurveyEngine.setEmbeddedData('ShopNowClicked','1');}catch(e){} window.parent.postMessage({type:'shopNowClicked'},'*'); this.style.background='#008BC0'; this.textContent='Redirecting...'; setTimeout(function(){try{document.getElementById('NextButton').click();}catch(e){}try{window.parent.document.getElementById('NextButton').click();}catch(e){}},300);" style="cursor:pointer">Shop Now</a>
+        </div>
+      </div>
+    </div>
+  </div><!-- /body-area -->
+</div><!-- /layout -->
+
+<script>
+/* ── Per-round status lines shown while each trace block is being written ── */
+var ROUND_STATUSES={
+  1:[
+    'Let me see what\u2019s leading the 2026 market',
+    'I\u2019m shortlisting the names that keep coming up',
+    'I should verify the claims with independent reviewers'
+  ],
+  2:[
+    'Let me work out what they\u2019re really asking for',
+    'I\u2019ll ground the advice in real-world numbers',
+    'Now I\u2019ll order the criteria by impact'
+  ],
+  3:[
+    'First, the $100 filter \u2014 who makes the cut?',
+    'Let me compare the three finalists side by side'
+  ]
+};
+/* Each round's visible thinking lasts ~10s: the trace animates in ~7-9s,
+   then the remainder is padded so every header reads "Thought for 10s". */
+var THINK_TARGET=10000;
+
+/* ── Conversation flow ── */
+function startConversation(){
+  document.getElementById('home-screen').style.display='none';
+  document.getElementById('messages').style.display='block';
+  var ia=document.getElementById('input-area');if(ia)ia.style.display='block';
+  var t=document.getElementById('typing-1');if(t)t.style.display='block';
+  scr();
+  runThinking(1,function(){showSuggest(1);});
+}
+
+/* Suggested-question buttons chain the rounds (from old_3.html) */
+function showRound(round,question){
+  var prev=document.getElementById('suggestions-'+(round-1));if(prev)prev.style.display='none';
+  var wrap=document.getElementById('round-'+round+'-wrap');
+  if(wrap){
+    wrap.style.display='block';
+    var q=document.getElementById('user-q'+round);if(q)q.textContent=question;
+  }
+  scr();
+  setTimeout(function(){
+    var t=document.getElementById('typing-'+round);if(t)t.style.display='block';
+    scr();
+    runThinking(round,function(){
+      if(round===3){
+        setTimeout(function(){
+          var ad=document.getElementById('native-ad');
+          var r3=document.getElementById('round-3');
+          var rail=document.querySelector('.ad-rail');
+          if(ad&&r3&&rail){
+            ad.style.display='block';
+            function align(){
+              var r3Bottom=r3.getBoundingClientRect().bottom;
+              var railTop=rail.getBoundingClientRect().top;
+              var adH=ad.offsetHeight;
+              var topVal=r3Bottom-railTop-adH;
+              ad.style.top=Math.max(0,topVal)+'px';
+            }
+            align();
+            setTimeout(align,200);
+            setTimeout(align,500);
+          }
+          scr();
+        },500);
+      } else {
+        showSuggest(round);
+      }
+    });
+  },500);
+}
+
+function showSuggest(round){
+  setTimeout(function(){
+    var s=document.getElementById('suggestions-'+round);
+    if(s)s.style.display='block';
+    scr();
+  },350);
+}
+
+/* ── Reasoning box (from deep.html, parameterized per round): updates a live
+   status line, progressively reveals trace blocks (queries, sources, comparison
+   table), then collapses to a clickable "Thought for Ns" header. ── */
+function runThinking(round,onDone){
+  var t0=Date.now();
+  var box=document.getElementById('think-box-'+round);
+  if(box)box.classList.add('rolling');
+  var sc=document.getElementById('th-scroll-'+round);
+  var cur=null;   // block currently being written
+  function roll(){
+    if(sc){
+      if(cur && cur.offsetHeight > sc.clientHeight){
+        sc.scrollTop=Math.max(0,cur.offsetTop-4);   // tall block: keep its intro text in view
+      } else {
+        sc.scrollTop=sc.scrollHeight;               // otherwise keep the newest line at the bottom
+      }
+    }
+    scr();
+  }
+  var line=document.getElementById('th-status-'+round);
+  function set(t){if(line)line.innerHTML='<span class="think-line">'+t+'</span>';roll();}
+
+  /* Consistent pacing — tuned so each round's trace animates in ~7-9s
+     and the whole reasoning (incl. the final sit) lands on THINK_TARGET */
+  var CHAR=12;    // ms per character while typing (smooth, like real streaming)
+  var ITEM=280;   // ms between revealed sub-items (constant)
+  var PAUSE=650;  // ms between blocks
+
+  var statuses=ROUND_STATUSES[round]||[];
+
+  function typeNote(el,done){
+    var full=el.getAttribute('data-full');
+    if(full===null){full=el.textContent;el.setAttribute('data-full',full);}
+    el.textContent='';
+    el.classList.add('typing');
+    var i=0;
+    (function step(){
+      if(i>=full.length){el.classList.remove('typing');if(done)done();return;}
+      var ch=full.charAt(i++);
+      el.textContent=full.slice(0,i);
+      roll();
+      var d=CHAR;                                   // smooth base cadence
+      if(ch===',' || ch===';') d+=140;              // small breath at clauses
+      else if(ch==='.' || ch==='?' || ch==='!' || ch===':') d+=260; // longer at sentence ends
+      else if(ch===' ') d+=8;
+      setTimeout(step,d);
+    })();
+  }
+
+  /* Reveal one sub-item at a time at a constant interval */
+  function revealItems(items,idx,done){
+    if(idx>=items.length){if(done)done();return;}
+    items[idx].classList.add('in');
+    items[idx].classList.add('show');
+    roll();
+    setTimeout(function(){revealItems(items,idx+1,done);},ITEM);
+  }
+
+  var blocks=Array.prototype.slice.call(document.querySelectorAll('#th-trace-'+round+' .th-block'));
+
+  /* Process blocks strictly one after another: finish one, then the next */
+  function doBlock(n){
+    if(n>=blocks.length){finish();return;}
+    var b=blocks[n];
+    cur=b;
+    if(statuses[n])set(statuses[n]);
+    b.classList.add('show');
+    var note=b.querySelector('.th-note');
+    function afterNote(){
+      var items=Array.prototype.slice.call(b.querySelectorAll('.th-q, ol > li, ul > li, .th-src'));
+      revealItems(items,0,function(){
+        var tbl=b.querySelector('.th-tablewrap');
+        if(tbl){
+          tbl.classList.add('in');
+          // enlarge the window so the whole stage (intro text + table) is visible
+          if(sc)sc.style.maxHeight=Math.min(480,b.scrollHeight+16)+'px';
+          setTimeout(function(){
+            if(sc)sc.scrollTop=Math.max(0,b.offsetTop-4);  // keep the intro text at the top
+            scr();
+          },60);
+          setTimeout(function(){next(n);},600);
+        }
+        else{next(n);}
+      });
+    }
+    if(note){typeNote(note,afterNote);}else{afterNote();}
+  }
+  function next(n){setTimeout(function(){doBlock(n+1);},PAUSE);}
+
+  function finish(){
+    /* Pad the remainder so the whole reasoning lasts THINK_TARGET (~10s);
+       the finished trace sits on screen during the pad, like deep's table did */
+    var pad=Math.max(400,THINK_TARGET-(Date.now()-t0));
+    setTimeout(function(){
+      collapseThinking(round,Math.round((Date.now()-t0)/1000));   // real elapsed time (~10s)
+      var r=document.getElementById('round-'+round);
+      if(r)r.style.display='block';
+      scr();
+      streamAnswer(round,function(){
+        if(onDone)onDone();
+      });
+    },pad);
+  }
+
+  set('Thinking');
+  setTimeout(function(){doBlock(0);},500);
+}
+
+/* Finish a reasoning box: stop rolling, swap spinner for a check, set the
+   summary title, and collapse it (still expandable to see everything). */
+var tbDefaultsSet=false;
+function collapseThinking(round,seconds){
+  var spin=document.getElementById('th-spin-'+round);if(spin)spin.style.display='none';
+  var chk=document.getElementById('th-check-'+round);if(chk)chk.style.display='inline-block';
+  var title=document.getElementById('th-title-'+round);if(title)title.textContent='Thought for '+seconds+'s';
+  var status=document.getElementById('th-status-'+round);if(status)status.style.display='none';
+  var sc=document.getElementById('th-scroll-'+round);if(sc)sc.style.maxHeight='';
+  var box=document.getElementById('think-box-'+round);
+  if(box){box.classList.remove('rolling');box.classList.add('done');box.classList.add('collapsed');}
+  /* Per-round defaults: participant has NOT expanded this finished box */
+  try{
+    Qualtrics.SurveyEngine.setEmbeddedData('ThinkBoxExpanded_R'+round,'0');
+    Qualtrics.SurveyEngine.setEmbeddedData('ThinkBoxExpandTime_R'+round,'0');
+    Qualtrics.SurveyEngine.setEmbeddedData('ThinkBoxToggleCount_R'+round,'0');
+  }catch(e){}
+  /* Aggregate defaults (same keys as deep.html), written once */
+  if(!tbDefaultsSet){
+    tbDefaultsSet=true;
+    try{
+      Qualtrics.SurveyEngine.setEmbeddedData('ThinkBoxExpanded','0');
+      Qualtrics.SurveyEngine.setEmbeddedData('ThinkBoxExpandTime','0');
+      Qualtrics.SurveyEngine.setEmbeddedData('ThinkBoxToggleCount','0');
+      Qualtrics.SurveyEngine.setEmbeddedData('ThinkBoxExpandTiming','never');
+    }catch(e){}
+    try{window.parent.postMessage({type:'thinkBoxExpanded',value:'0'},'*');}catch(e){}
+  }
+}
+
+/* ── Think box engagement tracking state (aggregate keys match deep.html;
+      per-round keys are written in addition) ── */
+var tbOpenStart={};      // per-round timestamp when that finished box was last expanded
+var tbOpenTotal=0;       // accumulated open time in ms across all boxes
+var tbRoundTotal={};     // accumulated open time in ms per round
+var tbToggleCount=0;     // total number of expansions across all boxes
+var tbRoundToggle={};    // number of expansions per round
+var tbTimingSet=false;   // first-expansion timing recorded?
+
+function anyBoxOpen(){for(var k in tbOpenStart){if(tbOpenStart[k])return true;}return false;}
+
+/* Write current total open seconds (all boxes combined) to embedded data */
+function tbWriteTime(){
+  var total=tbOpenTotal;
+  for(var k in tbOpenStart){if(tbOpenStart[k])total+=Date.now()-tbOpenStart[k];}
+  var secs=String(Math.round(total/1000));
+  try{Qualtrics.SurveyEngine.setEmbeddedData('ThinkBoxExpandTime',secs);}catch(e){}
+  try{window.parent.postMessage({type:'thinkBoxExpandTime',value:secs},'*');}catch(e){}
+}
+function tbWriteRoundTime(round){
+  var t=(tbRoundTotal[round]||0)+(tbOpenStart[round]?(Date.now()-tbOpenStart[round]):0);
+  try{Qualtrics.SurveyEngine.setEmbeddedData('ThinkBoxExpandTime_R'+round,String(Math.round(t/1000)));}catch(e){}
+}
+/* While any box is open, keep the saved values fresh every 2s so the time
+   is captured even if the participant advances with a box still open */
+setInterval(function(){
+  if(anyBoxOpen()){
+    tbWriteTime();
+    for(var k in tbOpenStart){if(tbOpenStart[k])tbWriteRoundTime(k);}
+  }
+},2000);
+
+/* Expand / collapse a reasoning box from its header */
+function toggleThink(round){
+  var box=document.getElementById('think-box-'+round);
+  if(box){
+    var isDone=box.classList.contains('done');
+    var expanding=isDone && box.classList.contains('collapsed');
+    box.classList.toggle('collapsed');
+    if(expanding){
+      /* Participant clicked to unfold the thinking process after thinking finished */
+      try{
+        Qualtrics.SurveyEngine.setEmbeddedData('ThinkBoxExpanded','1');
+        Qualtrics.SurveyEngine.setEmbeddedData('ThinkBoxExpanded_R'+round,'1');
+      }catch(e){}
+      try{window.parent.postMessage({type:'thinkBoxExpanded',value:'1',round:round},'*');}catch(e){}
+      /* Count this expansion (aggregate + per round) */
+      tbToggleCount++;
+      tbRoundToggle[round]=(tbRoundToggle[round]||0)+1;
+      try{
+        Qualtrics.SurveyEngine.setEmbeddedData('ThinkBoxToggleCount',String(tbToggleCount));
+        Qualtrics.SurveyEngine.setEmbeddedData('ThinkBoxToggleCount_R'+round,String(tbRoundToggle[round]));
+      }catch(e){}
+      try{window.parent.postMessage({type:'thinkBoxToggleCount',value:String(tbToggleCount),round:round},'*');}catch(e){}
+      /* First expansion only: was the ad already on screen, and which round's box? */
+      if(!tbTimingSet){
+        tbTimingSet=true;
+        var ad=document.getElementById('native-ad');
+        var timing=(ad && ad.style.display==='block')?'after_ad':'before_ad';
+        try{
+          Qualtrics.SurveyEngine.setEmbeddedData('ThinkBoxExpandTiming',timing);
+          Qualtrics.SurveyEngine.setEmbeddedData('ThinkBoxFirstExpandRound',String(round));
+        }catch(e){}
+        try{window.parent.postMessage({type:'thinkBoxExpandTiming',value:timing,round:round},'*');}catch(e){}
+      }
+      /* Start this box's open-time clock */
+      tbOpenStart[round]=Date.now();
+    } else if(isDone && tbOpenStart[round]){
+      /* Participant collapsed the box: bank the elapsed time */
+      var el=Date.now()-tbOpenStart[round];
+      tbOpenTotal+=el;
+      tbRoundTotal[round]=(tbRoundTotal[round]||0)+el;
+      tbOpenStart[round]=null;
+      tbWriteTime();
+      tbWriteRoundTime(round);
+    }
+  }
+  scr();
+}
+
+/* Smooth streaming: words fade in; table fades in as a whole block */
+function streamAnswer(round,done){
+  var body=document.querySelector('#round-'+round+' .asst-body');
+  if(!body){if(done)done();return;}
+  var tmp=document.createElement('div');
+  tmp.innerHTML=body.innerHTML;
+  body.innerHTML='';
+
+  var ops=[];
+  (function walk(node){
+    Array.prototype.forEach.call(node.childNodes,function(n){
+      if(n.nodeType===3){
+        var parts=n.nodeValue.split(/(\s+)/);
+        for(var k=0;k<parts.length;k++){if(parts[k].length)ops.push({t:'text',v:parts[k]});}
+      } else if(n.nodeType===1){
+        if(n.tagName==='TABLE'){
+          ops.push({t:'block',el:n});
+        } else {
+          ops.push({t:'open',el:n});
+          walk(n);
+          ops.push({t:'close'});
+        }
+      }
+    });
+  })(tmp);
+
+  var stack=[body];
+  function top(){return stack[stack.length-1];}
+  var i=0;
+  function step(){
+    if(i>=ops.length){if(done)done();return;}
+    var op=ops[i++];
+    if(op.t==='open'){
+      var el=document.createElement(op.el.tagName);
+      Array.prototype.forEach.call(op.el.attributes,function(a){el.setAttribute(a.name,a.value);});
+      top().appendChild(el);stack.push(el);step();
+    } else if(op.t==='close'){
+      stack.pop();step();
+    } else if(op.t==='block'){
+      var clone=op.el.cloneNode(true);
+      clone.className=(clone.className?clone.className+' ':'')+'stream-fade';
+      top().appendChild(clone);scr();
+      setTimeout(step,180);
+    } else {
+      if(/\S/.test(op.v)){
+        var s=document.createElement('span');
+        s.className='stream-word';
+        s.textContent=op.v;
+        top().appendChild(s);scr();
+        setTimeout(step,14+Math.random()*22);
+      } else {
+        top().appendChild(document.createTextNode(op.v));step();
+      }
+    }
+  }
+  step();
+}
+
+function scr(){setTimeout(function(){
+  var m=document.getElementById('messages');
+  if(m)m.scrollTo({top:m.scrollHeight,behavior:'smooth'});
+  window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
+},100)}
+
+/* ── Ad Menu Functions (from deep.html) ── */
+function toggleAdMenu(e){
+  e.stopPropagation();
+  var menu=document.getElementById('ad-menu-dropdown');
+  if(!menu)return;
+  menu.style.display=(menu.style.display==='none')?'block':'none';
+}
+
+function dismissAd(reason){
+  try{
+    Qualtrics.SurveyEngine.setEmbeddedData('AdDismissed','1');
+    Qualtrics.SurveyEngine.setEmbeddedData('AdDismissReason',reason);
+  }catch(e){}
+  try{
+    window.parent.postMessage({type:'adDismissed',reason:reason},'*');
+  }catch(e){}
+  document.getElementById('ad-menu-dropdown').style.display='none';
+  var adContainer=document.getElementById('native-ad');
+  var reasonLabels={
+    'not_interested':'Not interested',
+    'not_relevant':'Not relevant to me',
+    'seen_too_often':'Seen this too often',
+    'covers_content':'Covers content',
+    'inappropriate':'Inappropriate',
+    'report_ad':'Reported'
+  };
+  var label=reasonLabels[reason]||reason;
+  adContainer.innerHTML='<div style="border:1px solid #e8e8e8;border-radius:14px;background:#fafafa;padding:24px 20px;text-align:center">'
+    +'<div style="font-size:14px;color:#70757a;margin-bottom:4px">Ad removed</div>'
+    +'<div style="font-size:12px;color:#9ca3af">Reason: '+label+'</div>'
+    +'<div style="font-size:12px;color:#9ca3af;margin-top:8px">We\'ll try to show more relevant content.</div>'
+    +'</div>';
+}
+
+document.addEventListener('click',function(e){
+  var menu=document.getElementById('ad-menu-dropdown');
+  if(menu && menu.style.display==='block'){
+    menu.style.display='none';
+  }
+});
+</script>
+</body>
+</html>
